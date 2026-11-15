@@ -1,0 +1,109 @@
+{
+  "database_title": "M-Alloy-CAL Aluminium Casting Alloy Starter Database",
+  "database_version": "0.1.0",
+  "status": "starter_reference_data_not_yet_certified_against_current_astm_text",
+  "composition_unit": "wt.%",
+  "data_sources": [
+    {
+      "source_id": "AA_PINK_2025",
+      "publisher": "The Aluminum Association",
+      "document": "Designations and Chemical Composition Limits for Aluminum Alloys in the Form of Castings and Ingot (Pink Sheets)",
+      "revision": "August 2025",
+      "url": "https://www.aluminum.org/sites/default/files/2025-10/Pink%20Sheets%202025.pdf",
+      "note": "Public registration record for AA casting/ingot alloy designations. This is not an ASTM specification and does not replace the applicable ASTM product specification."
+    },
+    {
+      "source_id": "ASTM_B26_B26M",
+      "publisher": "ASTM International",
+      "document": "B26/B26M Standard Specification for Aluminum-Alloy Sand Castings",
+      "url": "https://www.astm.org/",
+      "note": "Select for sand-casting product route. Verify the current purchased edition for grade-specific chemistry and all requirements before production use."
+    },
+    {
+      "source_id": "ASTM_B108_B108M",
+      "publisher": "ASTM International",
+      "document": "B108/B108M Standard Specification for Aluminum-Alloy Permanent Mold Castings",
+      "url": "https://www.astm.org/",
+      "note": "Select for permanent-mold casting product route. Verify the current purchased edition for grade-specific chemistry and all requirements before production use."
+    },
+    {
+      "source_id": "ASTM_B179",
+      "publisher": "ASTM International",
+      "document": "B179 Standard Specification for Aluminum Alloys in Ingot and Molten Forms for Castings from All Casting Processes",
+      "url": "https://www.astm.org/",
+      "note": "Relevant to foundry ingot/molten alloy supply. Verify current edition and applicable alloy designation before production use."
+    }
+  ],
+  "alloys": [
+    {
+      "designation": "A356.0",
+      "family": "Al-Si-Mg",
+      "product_form": "Casting",
+      "registered_product_codes": ["S", "P"],
+      "astm_route_candidates": ["ASTM B26/B26M (sand casting)", "ASTM B108/B108M (permanent mold casting)"],
+      "chemistry_source": "AA_PINK_2025",
+      "chemistry_source_page": 4,
+      "chemistry_status": "AA registered limits transcribed; ASTM edition cross-check pending",
+      "elements": {
+        "Si": {"min": 6.5, "max": 7.5},
+        "Fe": {"min": 0.0, "max": 0.20},
+        "Cu": {"min": 0.0, "max": 0.20},
+        "Mn": {"min": 0.0, "max": 0.10},
+        "Mg": {"min": 0.25, "max": 0.45},
+        "Zn": {"min": 0.0, "max": 0.10},
+        "Ti": {"min": 0.0, "max": 0.20}
+      },
+      "other_elements_each_max": 0.05,
+      "other_elements_total_max": 0.15,
+      "aluminium": "Remainder",
+      "notes": "S&P indicates sand and permanent-mold casting in the source table. Minor/trace elements and footnotes must be checked against the source before release."
+    },
+    {
+      "designation": "356.0",
+      "family": "Al-Si-Mg",
+      "product_form": "Casting",
+      "registered_product_codes": ["S", "P"],
+      "astm_route_candidates": ["ASTM B26/B26M (sand casting)", "ASTM B108/B108M (permanent mold casting)"],
+      "chemistry_source": "AA_PINK_2025",
+      "chemistry_source_page": 4,
+      "chemistry_status": "AA registered limits transcribed; ASTM edition cross-check pending",
+      "elements": {
+        "Si": {"min": 6.5, "max": 7.5},
+        "Fe": {"min": 0.0, "max": 0.60},
+        "Cu": {"min": 0.0, "max": 0.25},
+        "Mn": {"min": 0.0, "max": 0.35},
+        "Mg": {"min": 0.20, "max": 0.45},
+        "Zn": {"min": 0.0, "max": 0.35},
+        "Ti": {"min": 0.0, "max": 0.25}
+      },
+      "other_elements_each_max": 0.05,
+      "other_elements_total_max": 0.15,
+      "aluminium": "Remainder",
+      "notes": "The source includes a footnote relating Mn to Fe when Fe exceeds 0.45%; check that condition before use."
+    },
+    {
+      "designation": "319.0",
+      "family": "Al-Si-Cu",
+      "product_form": "Casting",
+      "registered_product_codes": ["S", "P"],
+      "astm_route_candidates": ["ASTM B26/B26M (sand casting)", "ASTM B108/B108M (permanent mold casting)"],
+      "chemistry_source": "AA_PINK_2025",
+      "chemistry_source_page": 2,
+      "chemistry_status": "AA registered limits transcribed; ASTM edition cross-check pending",
+      "elements": {
+        "Si": {"min": 5.5, "max": 6.5},
+        "Fe": {"min": 0.0, "max": 1.0},
+        "Cu": {"min": 3.0, "max": 4.0},
+        "Mn": {"min": 0.0, "max": 0.50},
+        "Mg": {"min": 0.0, "max": 0.10},
+        "Ni": {"min": 0.0, "max": 0.35},
+        "Zn": {"min": 0.0, "max": 1.0},
+        "Ti": {"min": 0.0, "max": 0.25}
+      },
+      "other_elements_each_max": 0.05,
+      "other_elements_total_max": 0.50,
+      "aluminium": "Remainder",
+      "notes": "The source table lists S&P. Confirm all footnotes and current product specification requirements."
+    }
+  ]
+}
