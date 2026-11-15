@@ -304,7 +304,7 @@
           "max": 0.25
         }
       },
-      "other_elements_each_max": 0,
+      "other_elements_each_max": null,
       "other_elements_total_max": 0.35,
       "aluminium": "Remainder",
       "notes": "The AA row uses maximum limits for the listed alloying/impurity elements. Check the complete table and footnotes for all unlisted elements."
