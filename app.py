@@ -171,7 +171,7 @@ if st.button("⚙️  CALCULATE CHARGE", type="primary", use_container_width=Tru
         with metric_cols[0]:
             st.metric("Base metal / returns", f'{result["base_metal_kg"]:,.2f} kg')
         for idx, item in enumerate(result["master_alloys"], start=1):
-            with metric_cols[idx]:
+            with metric_cols[idx % len(metric_cols)]:
                 st.metric(item["name"], f'{item["kg"]:,.2f} kg')
         st.metric("Final batch mass", f'{result["batch_kg"]:,.2f} kg')
 
