@@ -51,8 +51,8 @@
         "P"
       ],
       "astm_route_candidates": [
-        "ASTM B26/B26M (sand casting)",
-        "ASTM B108/B108M (permanent mold casting)"
+        "ASTM B26/B26M — Sand casting",
+        "ASTM B108/B108M — Permanent-mold casting"
       ],
       "chemistry_source": "AA_PINK_2025",
       "chemistry_source_page": 4,
@@ -91,7 +91,7 @@
       "other_elements_total_max": 0.15,
       "aluminium": "Remainder",
       "notes": "S&P indicates sand and permanent-mold casting in the source table. Minor/trace elements and footnotes must be checked against the source before release.",
-      "series": "Axx.x"
+      "series": "3xx.x"
     },
     {
       "designation": "356.0",
@@ -102,8 +102,8 @@
         "P"
       ],
       "astm_route_candidates": [
-        "ASTM B26/B26M (sand casting)",
-        "ASTM B108/B108M (permanent mold casting)"
+        "ASTM B26/B26M — Sand casting",
+        "ASTM B108/B108M — Permanent-mold casting"
       ],
       "chemistry_source": "AA_PINK_2025",
       "chemistry_source_page": 4,
@@ -153,8 +153,8 @@
         "P"
       ],
       "astm_route_candidates": [
-        "ASTM B26/B26M (sand casting)",
-        "ASTM B108/B108M (permanent mold casting)"
+        "ASTM B26/B26M — Sand casting",
+        "ASTM B108/B108M — Permanent-mold casting"
       ],
       "chemistry_source": "AA_PINK_2025",
       "chemistry_source_page": 2,
