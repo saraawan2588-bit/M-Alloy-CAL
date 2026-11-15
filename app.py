@@ -42,14 +42,13 @@ route = st.selectbox(
 )
 st.caption("ASTM route is a selection aid, not a declaration of compliance. Check the applicable current edition.")
 
+grade_elements = list(selected["elements"].keys())
 with st.expander("View registered composition limits (wt.%)", expanded=True):
-    rows = []
-    for element, limits in selected["elements"].items():
-        rows.append({
-            "Element": element,
-            "Minimum": limits["min"],
-            "Maximum": limits["max"],
-        })
+    rows = [
+        {"Element": element, "Minimum": selected["elements"][element]["min"],
+         "Maximum": selected["elements"][element]["max"]}
+        for element in grade_elements
+    ]
     st.dataframe(rows, use_container_width=True, hide_index=True)
     st.write(f"Aluminium: **{selected['aluminium']}**")
     st.write(
@@ -65,11 +64,10 @@ batch_kg = st.number_input(
 )
 
 st.markdown("### 3. Set target chemistry")
-st.caption("Initial targets are set to the midpoint of each registered range. You can change them.")
-elements = list(selected["elements"].keys())
+st.caption("Initial targets are the midpoint of the registered ranges. Change them to your approved melt target.")
 target = {}
 cols = st.columns(2)
-for idx, element in enumerate(elements):
+for idx, element in enumerate(grade_elements):
     limits = selected["elements"][element]
     midpoint = (limits["min"] + limits["max"]) / 2
     with cols[idx % 2]:
@@ -83,22 +81,37 @@ for idx, element in enumerate(elements):
             key=f"target_{selected['designation']}_{element}",
         )
 
-st.markdown("### 4. Enter the base metal / returns assay")
-st.caption("Enter the latest measured composition of the base metal or returns. Use zero only if the element is confirmed absent/negligible.")
+st.markdown("### 4. Enter base-metal / returns assay")
+st.caption("Use a recent chemical-analysis result. Do not assume an element is zero unless verified.")
 base = {}
 cols = st.columns(2)
-for idx, element in enumerate(elements):
+for idx, element in enumerate(grade_elements):
     with cols[idx % 2]:
         base[element] = st.number_input(
             f"Base metal {element} (wt.%)",
             min_value=0.0, max_value=100.0, value=0.0,
-            step=0.01, format="%.3f", key=f"base_{element}"
+            step=0.01, format="%.3f", key=f"base_{selected['designation']}_{element}"
         )
 
-st.markdown("### 5. Select and assay available master alloys")
+st.markdown("### 5. Which elements do you need to adjust?")
+default_controls = [e for e in ("Si", "Mg") if e in grade_elements]
+if len(default_controls) < 1:
+    default_controls = grade_elements[:1]
+controlled_elements = st.multiselect(
+    "Select the elements you intend to add using master alloys",
+    options=grade_elements,
+    default=default_controls,
+)
+if not controlled_elements:
+    st.info("Select at least one element to calculate its master-alloy addition.")
+    st.stop()
+
+st.markdown("### 6. Enter available master alloys")
+st.caption("Enter the actual supplier assay or certificate value for each selected element.")
 count = st.number_input(
     "How many master alloys are available?",
-    min_value=len(elements), max_value=10, value=len(elements), step=1
+    min_value=len(controlled_elements), max_value=10,
+    value=len(controlled_elements), step=1
 )
 master_alloys = []
 for i in range(int(count)):
@@ -106,7 +119,7 @@ for i in range(int(count)):
         name = st.text_input("Name / grade", value=f"Addition {i + 1}", key=f"name_{i}")
         composition = {}
         cols = st.columns(2)
-        for idx, element in enumerate(elements):
+        for idx, element in enumerate(controlled_elements):
             with cols[idx % 2]:
                 composition[element] = st.number_input(
                     f"{element} in {name} (wt.%)",
@@ -117,7 +130,11 @@ for i in range(int(count)):
 
 if st.button("Calculate charge", type="primary", use_container_width=True):
     try:
-        result = calculate_blend(batch_kg, elements, target, base, master_alloys)
+        selected_target = {e: target[e] for e in controlled_elements}
+        selected_base = {e: base[e] for e in controlled_elements}
+        result = calculate_blend(
+            batch_kg, controlled_elements, selected_target, selected_base, master_alloys
+        )
         st.success("Ideal material-balance calculation completed.")
         st.markdown("### Charge sheet")
         st.metric("Base metal / returns", f"{result['base_metal_kg']:.3f} kg")
@@ -127,14 +144,16 @@ if st.button("Calculate charge", type="primary", use_container_width=True):
         for element, achieved in result["achieved_wt_pct"].items():
             st.write(
                 f"**{element}:** {achieved:.4f} wt.% "
-                f"(target {target[element]:.4f} wt.%)"
+                f"(target {selected_target[element]:.4f} wt.%)"
             )
+        if result["unused_master_alloys"]:
+            st.caption("No addition required from: " + ", ".join(result["unused_master_alloys"]))
         st.caption(
-            "This is an ideal mass balance only. It does not account for "
-            "element recovery, oxidation, dross/slag losses, melt loss, "
-            "charge contamination, or unentered trace elements. Do not use "
-            "as a production instruction until plant-specific recoveries and "
-            "all specification limits are validated."
+            "Only the selected adjustment elements were solved. This result does not "
+            "certify the unselected elements or full alloy compliance. The ideal balance "
+            "does not account for recovery, oxidation, dross/slag losses, melt loss, "
+            "charge contamination, or unentered trace elements. Do not use as a production "
+            "instruction until plant-specific recoveries and all specification limits are validated."
         )
     except CalculationError as exc:
         st.error(str(exc))
