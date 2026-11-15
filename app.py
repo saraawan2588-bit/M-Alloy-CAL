@@ -56,6 +56,11 @@ selected = st.selectbox(
     format_func=lambda a: f'{a["designation"]}  ·  {a["family"]}',
 )
 st.caption(f'Alloy series: {selected.get("series", "Not classified")}  |  Product form: {selected["product_form"]}')
+with st.expander("How cast-alloy series are grouped"):
+    st.markdown("\n".join(
+        f"- **{series}** — {description}"
+        for series, description in database.get("series_reference", {}).items()
+    ))
 
 standard_links = {
     "ASTM B26/B26M": "https://store.astm.org/b0026_b0026m-25.html",
@@ -80,10 +85,9 @@ with st.expander("Registered chemistry limits · wt.%", expanded=False):
     ]
     st.dataframe(rows, use_container_width=True, hide_index=True)
     st.write(f'Aluminium: **{selected["aluminium"]}**')
-    st.write(
-        f'Other elements: each ≤ {selected["other_elements_each_max"]} wt.%; '
-        f'total ≤ {selected["other_elements_total_max"]} wt.%.'
-    )
+    each_limit = selected.get("other_elements_each_max")
+    each_text = f"each ≤ {each_limit} wt.%" if each_limit is not None else "individual limit not separately stated in this record"
+    st.write(f"Other elements: {each_text}; total ≤ {selected['other_elements_total_max']} wt.%." )
     st.caption(f'Source: {selected["chemistry_source"]}, page {selected["chemistry_source_page"]}. {selected["notes"]}')
 
 st.divider()
