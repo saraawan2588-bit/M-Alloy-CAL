@@ -1,5 +1,8 @@
 """Pure-Python ideal mass-balance calculator for master-alloy additions."""
 
+from itertools import combinations
+
+
 class CalculationError(ValueError):
     """Raised when the requested blend cannot be solved safely."""
 
@@ -8,17 +11,12 @@ def _solve_linear_system(matrix, rhs, tolerance=1e-10):
     """Solve a square system using Gauss-Jordan elimination with pivoting."""
     n = len(rhs)
     if n == 0 or len(matrix) != n or any(len(row) != n for row in matrix):
-        raise CalculationError(
-            "For this first version, select the same number of master alloys as controlled elements."
-        )
+        raise CalculationError("The selected system is not square.")
     augmented = [list(map(float, matrix[i])) + [float(rhs[i])] for i in range(n)]
     for col in range(n):
         pivot = max(range(col, n), key=lambda row: abs(augmented[row][col]))
         if abs(augmented[pivot][col]) < tolerance:
-            raise CalculationError(
-                "The selected master alloys cannot independently achieve these targets. "
-                "Try a different combination of master alloys."
-            )
+            raise CalculationError("The selected master alloys are compositionally dependent.")
         augmented[col], augmented[pivot] = augmented[pivot], augmented[col]
         divisor = augmented[col][col]
         augmented[col] = [value / divisor for value in augmented[col]]
@@ -34,19 +32,21 @@ def _solve_linear_system(matrix, rhs, tolerance=1e-10):
 
 
 def calculate_blend(batch_kg, elements, target, base, master_alloys):
-    """Calculate master-alloy and base-metal masses for an ideal final batch.
+    """Calculate additions for an ideal final batch.
 
-    All compositions are weight percent. The final batch mass includes the
-    base metal and all additions. No process losses or element recoveries
-    are applied.
+    The engine searches combinations of selected master alloys and uses the
+    first exact, non-negative solution that leaves a non-negative base-metal
+    mass. This supports selecting more master alloys than controlled elements.
+    Compositions are wt.%; masses are kg.
     """
     if batch_kg <= 0:
         raise CalculationError("Batch weight must be greater than zero.")
     if not elements:
         raise CalculationError("At least one controlled element is required.")
-    if len(master_alloys) != len(elements):
+    if len(master_alloys) < len(elements):
         raise CalculationError(
-            "For this first version, select exactly one master alloy per controlled element."
+            "Select at least as many master alloys as controlled elements. "
+            "A future version will support underdetermined optimized solutions."
         )
 
     for label, composition in [("Target", target), ("Base metal", base)]:
@@ -61,48 +61,67 @@ def calculate_blend(batch_kg, elements, target, base, master_alloys):
     if len(set(names)) != len(names):
         raise CalculationError("Master alloy names must be unique.")
 
-    matrix = []
-    rhs = []
-    for element in elements:
-        row = []
-        for item in master_alloys:
+    for item in master_alloys:
+        for element in elements:
             value = float(item["composition"].get(element, 0.0))
             if not 0 <= value <= 100:
                 raise CalculationError(
                     f"{item['name']} {element} must be between 0 and 100 wt.%."
                 )
-            row.append(value - float(base.get(element, 0.0)))
-        matrix.append(row)
-        rhs.append(batch_kg * (float(target[element]) - float(base.get(element, 0.0))))
 
-    additions = _solve_linear_system(matrix, rhs)
-    if any(value < -1e-8 for value in additions):
-        raise CalculationError(
-            "The selected master alloys would require a negative addition. "
-            "Choose different master alloys or revise the target composition."
-        )
-    additions = [max(0.0, value) for value in additions]
-    base_kg = batch_kg - sum(additions)
-    if base_kg < -1e-8:
-        raise CalculationError(
-            "The calculated additions exceed the final batch weight. "
-            "The selected materials cannot make this batch as specified."
-        )
-    base_kg = max(0.0, base_kg)
+    rhs = [
+        batch_kg * (float(target[element]) - float(base.get(element, 0.0)))
+        for element in elements
+    ]
+    last_reason = "No feasible combination of the selected master alloys was found."
 
-    achieved = {}
-    for element in elements:
-        element_mass = base_kg * float(base.get(element, 0.0)) / 100.0
-        for item, addition in zip(master_alloys, additions):
-            element_mass += addition * float(item["composition"].get(element, 0.0)) / 100.0
-        achieved[element] = 100.0 * element_mass / batch_kg
+    for chosen_indices in combinations(range(len(master_alloys)), len(elements)):
+        matrix = []
+        for element in elements:
+            matrix.append([
+                float(master_alloys[i]["composition"].get(element, 0.0))
+                - float(base.get(element, 0.0))
+                for i in chosen_indices
+            ])
+        try:
+            additions = _solve_linear_system(matrix, rhs)
+        except CalculationError:
+            continue
+        if any(value < -1e-8 for value in additions):
+            last_reason = "A candidate combination requires a negative master-alloy addition."
+            continue
+        additions = [max(0.0, value) for value in additions]
+        base_kg = batch_kg - sum(additions)
+        if base_kg < -1e-8:
+            last_reason = "The candidate additions exceed the final batch weight."
+            continue
 
-    return {
-        "batch_kg": float(batch_kg),
-        "base_metal_kg": base_kg,
-        "master_alloys": [
-            {"name": item["name"], "kg": addition}
-            for item, addition in zip(master_alloys, additions)
-        ],
-        "achieved_wt_pct": achieved,
-    }
+        all_additions = [0.0] * len(master_alloys)
+        for index, value in zip(chosen_indices, additions):
+            all_additions[index] = value
+        base_kg = max(0.0, base_kg)
+
+        achieved = {}
+        for element in elements:
+            element_mass = base_kg * float(base.get(element, 0.0)) / 100.0
+            for item, addition in zip(master_alloys, all_additions):
+                element_mass += addition * float(item["composition"].get(element, 0.0)) / 100.0
+            achieved[element] = 100.0 * element_mass / batch_kg
+
+        return {
+            "batch_kg": float(batch_kg),
+            "base_metal_kg": base_kg,
+            "master_alloys": [
+                {"name": item["name"], "kg": addition}
+                for item, addition in zip(master_alloys, all_additions)
+            ],
+            "achieved_wt_pct": achieved,
+            "unused_master_alloys": [
+                item["name"] for item, addition in zip(master_alloys, all_additions)
+                if addition <= 1e-10
+            ],
+        }
+
+    raise CalculationError(
+        last_reason + " Try different master-alloy compositions or target values."
+    )
