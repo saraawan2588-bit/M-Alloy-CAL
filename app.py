@@ -444,8 +444,10 @@ with audit_tab:
             })
         st.dataframe(audit_rows, use_container_width=True, hide_index=True)
         max_error = max(abs(row["Difference vs target (wt.%)"]) for row in audit_rows)
+        software_error = max(abs(row["Independent recalculation (wt.%)"] - row["Software result (wt.%)"]) for row in audit_rows)
         st.write(f"Maximum absolute element-target deviation: **{max_error:.10f} wt.%**")
-        if abs(mass_error) <= 1e-7 and max_error <= 1e-7:
+        st.write(f"Maximum difference between independent audit and software result: **{software_error:.10f} wt.%**")
+        if abs(mass_error) <= 1e-7 and max_error <= 1e-7 and software_error <= 1e-7:
             st.success("The result passes the internal ideal mass-closure and selected-element balance checks.")
         else:
             st.error("The result does not pass the audit tolerance. Do not rely on this charge sheet; report it for code review.")
