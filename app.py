@@ -1,5 +1,12 @@
+import io
 import json
 from pathlib import Path
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 import streamlit as st
 
@@ -33,6 +40,103 @@ ELEMENTS = [
 ]
 ELEMENT_LABELS = [f"{symbol} — {name}" for symbol, name in ELEMENTS]
 ELEMENT_NAME = dict(ELEMENTS)
+
+def _report_table(rows, widths=None):
+    table = Table(rows, colWidths=widths, repeatRows=1, hAlign="LEFT")
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#173B4D")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7),
+        ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#C7D2D8")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F6F8")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    return table
+
+
+def build_pdf_report(saved):
+    """Build a PDF record containing the user's selected inputs and calculation results."""
+    result = saved["result"]
+    elements = saved["elements"]
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4, rightMargin=14*mm, leftMargin=14*mm,
+        topMargin=14*mm, bottomMargin=14*mm,
+        title="M-Alloy-CAL Charge Calculation Report", author="M-Alloy-CAL",
+    )
+    styles = getSampleStyleSheet()
+    note_style = ParagraphStyle(
+        "ReportNote", parent=styles["BodyText"], fontSize=8, leading=10,
+        textColor=colors.HexColor("#555555"),
+    )
+    story = [
+        Paragraph("M-Alloy-CAL", styles["Title"]),
+        Paragraph("Aluminium Foundry Charge Calculation Report", styles["Heading2"]),
+        Paragraph("Prototype / educational report — not a production instruction.", note_style),
+        Spacer(1, 4*mm),
+        Paragraph("1. Selected setup", styles["Heading2"]),
+    ]
+    setup = [
+        ["Alloy", f'{saved.get("alloy_designation", "")} — {saved.get("alloy_family", "")}'],
+        ["Casting / supply route", saved.get("casting_route", "Not specified")],
+        ["Composition route", saved.get("composition_route", "")],
+        ["Calculation basis", saved.get("calculation_basis", "")],
+        ["Required final batch", f'{saved["batch_kg"]:.4f} kg'],
+    ]
+    if saved.get("metal_yield_pct") is not None:
+        setup.append(["Measured overall metal yield", f'{saved["metal_yield_pct"]:.4f} %'])
+    story.append(_report_table(setup, [55*mm, 115*mm]))
+    story += [Spacer(1, 3*mm), Paragraph("2. Target and base-metal chemistry", styles["Heading2"])]
+    chemistry = [["Element", "Target (wt.%)", "Base assay (wt.%)", "Recovery (%)"]]
+    for element in elements:
+        recovery = saved.get("element_recovery_pct", {}).get(element)
+        chemistry.append([
+            element, f'{saved["target"][element]:.6f}',
+            f'{saved["base"].get(element, 0):.6f}',
+            f'{recovery:.4f}' if recovery is not None else "—",
+        ])
+    story.append(_report_table(chemistry, [30*mm, 48*mm, 48*mm, 44*mm]))
+    story += [Spacer(1, 3*mm), Paragraph("3. Master-alloy assays entered (wt.%)", styles["Heading2"])]
+    assay = [["Material"] + elements]
+    for material in saved["master_alloys"]:
+        assay.append([material["name"]] + [f'{material["composition"].get(e, 0):.6f}' for e in elements])
+    story.append(_report_table(assay))
+    story += [Spacer(1, 3*mm), Paragraph("4. Calculated charge sheet", styles["Heading2"])]
+    charges = [["Material", "Charge (kg)"], ["Base metal / returns", f'{result["base_metal_kg"]:.6f}']]
+    charges.extend([[item["name"], f'{item["kg"]:.6f}'] for item in result["master_alloys"]])
+    charges.append(["Total gross charge", f'{result.get("total_charge_kg", result["batch_kg"]):.6f}'])
+    if "final_metal_kg" in result:
+        charges.append(["Required recovered metal", f'{result["final_metal_kg"]:.6f}'])
+    story.append(_report_table(charges, [100*mm, 70*mm]))
+    story += [Spacer(1, 3*mm), Paragraph("5. Calculated final chemistry", styles["Heading2"])]
+    final_rows = [["Element", "Target (wt.%)", "Calculated (wt.%)", "Difference (wt.%)"]]
+    for element in elements:
+        value = result["achieved_wt_pct"][element]
+        target_value = saved["target"][element]
+        final_rows.append([element, f"{target_value:.6f}", f"{value:.6f}", f"{value-target_value:+.6f}"])
+    story.append(_report_table(final_rows))
+    story += [
+        Spacer(1, 4*mm), Paragraph("Important limitations", styles["Heading2"]),
+        Paragraph(
+            "This report records user-entered data and software outputs. It does not validate laboratory "
+            "assays, supplier certificates, standard compliance, process yield, element recovery or "
+            "metallurgical suitability. Actual mode uses user-provided measured factors and does not "
+            "separately model oxide, dross or slag streams. Obtain qualified metallurgical and plant "
+            "approval before production use.", note_style,
+        ),
+        Spacer(1, 2*mm),
+        Paragraph("Bug reports: temporarymail09871234@gmail.com", note_style),
+    ]
+    doc.build(story)
+    return buffer.getvalue()
+
+
 
 st.markdown("""
 <style>
@@ -351,6 +455,15 @@ with calculator_tab:
                     for element, achieved in result["achieved_wt_pct"].items()
                 ]
                 st.dataframe(check_rows, use_container_width=True, hide_index=True)
+                pdf_bytes = build_pdf_report(st.session_state["last_calculation_audit"])
+                st.download_button(
+                    "Save calculation report as PDF",
+                    data=pdf_bytes,
+                    file_name=f"M-Alloy-CAL_{selected['designation'].replace('.', '-')}_report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="download_charge_report_pdf",
+                )
                 if result["unused_master_alloys"]:
                     st.info("No addition required from: " + ", ".join(result["unused_master_alloys"]))
                 if calculation_basis == "Ideal theoretical":
@@ -585,3 +698,4 @@ with audit_tab:
 
 st.divider()
 st.caption("M-Alloy-CAL · Aluminium casting prototype · Complete chemistry and plant process validation are required before production use.")
+st.caption("Bug reports and feedback: temporarymail09871234@gmail.com")
