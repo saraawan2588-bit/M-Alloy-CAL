@@ -36,13 +36,21 @@ ELEMENT_NAME = dict(ELEMENTS)
 
 st.markdown("""
 <style>
-.block-container {max-width: 1180px; padding-top: 1.8rem; padding-bottom: 3rem;}
-.hero {padding: 1.35rem 1.5rem; border-radius: 16px; background: linear-gradient(115deg,#102b3f,#1d5266); color: white; margin-bottom: 1rem;}
-.hero h1 {color: white; margin: 0 0 .25rem 0; font-size: 2rem;}
-.hero p {color: #e5f1f5; margin: 0; font-size: 1rem;}
-div[data-testid="stMetric"] {background: #f3f7f9; border: 1px solid #dce7ec; padding: .8rem 1rem; border-radius: 12px;}
-div.stButton > button[kind="primary"] {min-height: 3.25rem; font-size: 1.08rem; font-weight: 700; border-radius: 10px;}
-div[data-testid="stExpander"] {border-radius: 10px;}
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+html, body, [class*="css"], [data-testid="stAppViewContainer"] {font-family:'DM Sans',sans-serif;}
+h1,h2,h3,h4 {font-family:'Manrope',sans-serif;letter-spacing:-.025em;}
+.block-container {max-width:1240px;padding-top:1.4rem;padding-bottom:3rem;}
+.hero {padding:2.2rem 1.6rem;border-radius:18px;color:white;text-align:center;margin-bottom:1rem;background:linear-gradient(90deg,rgba(8,24,37,.90),rgba(13,65,78,.72)),url('https://images.unsplash.com/photo-1567789884554-0b844b597180?auto=format&fit=crop&w=1800&q=85') center/cover;}
+.hero h1 {color:white;margin:0 0 .4rem 0;font-size:2.45rem;font-weight:800;}
+.hero p {color:rgba(255,255,255,.72);margin:0;font-size:1rem;}
+div[data-testid="stAlert"] p,.intro-copy {opacity:.5;}
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {justify-content:flex-end;gap:.35rem;border-bottom:1px solid var(--secondary-background-color);}
+div[data-testid="stTabs"] button[data-baseweb="tab"] {font-weight:600;padding:.65rem .95rem;}
+div[data-testid="stMetric"] {background:var(--secondary-background-color);color:var(--text-color);border:1px solid var(--border-color,#8885);padding:.8rem 1rem;border-radius:12px;}
+div.stButton > button[kind="primary"] {min-height:3.15rem;font-size:1rem;font-weight:700;border-radius:10px;}
+div[data-testid="stExpander"] {border-radius:10px;}
+div[data-testid="stNumberInput"] label,div[data-testid="stTextInput"] label {color:var(--text-color)!important;}
+div[data-testid="stVerticalBlockBorderWrapper"] {border-color:var(--border-color,#8885)!important;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -51,7 +59,7 @@ st.markdown(
     '<p>Master-alloy and charge calculator · Aluminium foundry edition</p></div>',
     unsafe_allow_html=True,
 )
-st.write("Choose your composition route and calculation basis, then build and verify an aluminium foundry charge.")
+st.markdown('<p class="intro-copy" style="text-align:center">A practical charge-planning workspace for aluminium foundry operations.</p>', unsafe_allow_html=True)
 
 st.warning(
     "Prototype / educational use only. The alloy-grade chemistry records are transcribed from "
@@ -59,9 +67,7 @@ st.warning(
     "This calculator does not replace melt-treatment procedures or metallurgical approval."
 )
 
-calculator_tab, guide_tab, warnings_tab, audit_tab = st.tabs(
-    ["⚙️  Charge calculator", "📘  How to use", "⚠️  Warnings & troubleshooting", "🧮  Calculation audit"]
-)
+calculator_tab, guide_tab, warnings_tab, audit_tab = st.tabs(["Charge calculator", "Frequently asked questions", "Warnings", "Calculation audit"])
 
 with calculator_tab:
     st.markdown("## 1 · Choose your production calculation")
@@ -113,6 +119,7 @@ with calculator_tab:
         "ASTM B85/B85M": "https://store.astm.org/b0085_b0085m-25.html",
         "ASTM B179": "https://store.astm.org/b0179-26.html",
     }
+    route = "Not specified"
     route_options = selected.get("astm_route_candidates", [])
     if route_options:
         route = st.selectbox("Casting / supply route", route_options)
@@ -302,6 +309,11 @@ with calculator_tab:
                     "result": result,
                     "calculation_basis": calculation_basis,
                     "composition_route": composition_route,
+                    "alloy_designation": selected["designation"],
+                    "alloy_family": selected.get("family", ""),
+                    "casting_route": route,
+                    "metal_yield_pct": metal_yield_pct if calculation_basis == "Actual process-adjusted" else None,
+                    "element_recovery_pct": dict(element_recovery) if calculation_basis == "Actual process-adjusted" else {},
                 }
                 st.success(f"{calculation_basis} calculation completed.")
                 st.markdown("## Charge sheet")
@@ -362,40 +374,23 @@ with calculator_tab:
                 )
 
 with guide_tab:
-    st.markdown("## How to use M-Alloy-CAL")
-    st.markdown("""
-### Step 0 — Choose the calculation route
-First choose whether you are targeting the registered grade chemistry range or entering a modified/custom composition. The registered mode constrains grade-element targets to the stored range; the custom mode allows other values but does not certify specification compliance. Then choose **Ideal theoretical** or **Actual process-adjusted**. Ideal mode assumes 100% retention. Actual mode requires measured overall metal yield and an element-specific recovery for every selected element, plus an explicit confirmation that the data are validated.
-
-### Step 1 — Select the aluminium casting grade
-Choose the alloy designation (for example A356.0). Filter by series if helpful. Check the product route and open the linked ASTM catalogue page. The displayed grade chemistry is a starter reference, not proof of ASTM compliance.
-
-### Step 2 — Enter the final batch mass
-Enter the required finished metal mass in **kg**. This is the mass of the final batch, not the furnace capacity or gross charge before melt loss.
-
-### Step 3 — Set the target chemistry
-For registered grade elements, the initial target is the midpoint of the recorded range. Replace it with your approved melt target. Targets are entered in **wt.%**.
-
-### Step 4 — Select elements to adjust
-The selector contains all 118 chemical element symbols and names. Select every element you want the calculator to balance, including optional modifiers and microalloying additions. Examples include Sr, Na, Sb, Ti, B, Zr, La and Ce. An element being selectable does not mean it is suitable for every alloy or process.
-
-### Step 5 — Enter base-metal / returns assay
-Enter the measured concentration of each selected element in the base metal. Use a recent spectrometer or laboratory result. Do not assume an element is zero unless the assay supports that assumption.
-
-### Step 6 — Enter available master alloys
-Enter a unique material name or grade for each master alloy. For every selected element, enter its concentration from the supplier's certificate in **wt.%**. Enter zero only if the certificate or reliable analysis supports zero / below-detection content. A multi-element master alloy can be entered with more than one non-zero assay.
-
-### Step 7 — Calculate and review the charge sheet
-In actual mode, the gross charge mass is larger than the required recovered metal mass when the measured yield is below 100%. The combined effect of oxidation, dross, slag removal/carry-over and transfer losses is represented by the entered overall yield; do not enter those losses again as additional deductions. Element-specific recovery accounts for how much of each selected element remains in the final metal. This mode does not calculate the separate mass or chemistry of each loss stream.
-Press **CALCULATE CHARGE**. Review base-metal mass, each master-alloy addition in **kg**, and the calculated versus target composition. Displayed charge masses are rounded to 0.01 kg; composition values retain more displayed precision for low-level additions.
-
-### Example — adding strontium
-If you want to calculate an Sr addition, select **Sr — Strontium** in Step 4, enter the approved final Sr target and the measured Sr already present in the base metal, then enter the Sr concentration from the Al-Sr master-alloy certificate. If you are also adjusting Si and Mg, select those too and provide enough independent master-alloy inputs to solve all selected balances. Do not use a generic Sr target: the correct treatment depends on alloy, process, melt condition, holding time, and plant procedure.
-""")
-    st.markdown("### Important unit reminder")
-    st.write("- Batch and addition masses: **kg**")
-    st.write("- Element concentrations and assays: **wt.%**")
-    st.write("- 1 wt.% = 10,000 ppm. For ppm-level targets, convert carefully before entering a value in wt.%.")
+    st.markdown("## Frequently asked questions")
+    faq_items = [
+        ("Registered grade or custom composition?", "Registered grade mode constrains listed elements to stored chemistry ranges. Custom mode permits modified targets but does not certify ASTM, customer or plant-specification compliance."),
+        ("Ideal or actual process-adjusted calculation?", "Ideal mode assumes 100% retention. Actual mode uses measured overall metal yield and element-specific recovery values. It does not predict furnace losses."),
+        ("What does metal yield include?", "Use recovered metal mass divided by gross charged mass from a comparable process. The yield should already include the combined net effect of oxidation, dross, slag removal/carry-over and transfer losses. Do not subtract these losses twice."),
+        ("Where should I obtain assay values?", "Use recent base-metal laboratory/spectrometer results and supplier certificates for the exact master-alloy lot. Starter alloy records come from the Aluminum Association Pink Sheets (August 2025), not independent ASTM certification."),
+        ("Why is a base-metal assay necessary?", "Returns and base metal already contain elements. Ignoring these contributions can overstate or understate required additions."),
+        ("Why can a blend be rejected?", "The chosen master alloys may be compositionally dependent, require negative additions, or exceed the charge mass. The current solver needs at least as many master alloys as controlled elements."),
+        ("Are all 118 selectable elements suitable?", "No. The periodic-table selector is a reference, not a recommendation. Use only metallurgically approved additions and validated procedures."),
+        ("Can I use the PDF as a production instruction?", "No. It records entered inputs and calculated outputs. Qualified metallurgical review and plant validation remain essential."),
+        ("How do I report a bug?", "Email the steps to reproduce the issue, selected calculation mode, and error text to temporarymail09871234@gmail.com. Do not send confidential plant or supplier data unless authorized.")
+    ]
+    for question, answer in faq_items:
+        with st.expander(question):
+            st.write(answer)
+    st.markdown("### Contact and bug reports")
+    st.markdown("[temporarymail09871234@gmail.com](mailto:temporarymail09871234@gmail.com)")
 
 with warnings_tab:
     st.markdown("## Warnings and troubleshooting")
