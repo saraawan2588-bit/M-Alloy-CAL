@@ -235,6 +235,11 @@ with calculator_tab:
                 help="Recovered metal mass divided by total charged mass. Use historical or measured data for the same furnace, alloy family, treatment and operating practice."
             )
             st.caption("This single measured yield represents the combined net effect of metal losses such as oxidation, dross, slag carry-over/removal and transfer losses. Do not add separate loss percentages again if they are already included in the measured yield.")
+            process_data_confirmed = st.checkbox(
+                "I confirm that the yield and element-recovery values are based on measured, validated data for a comparable process.",
+                value=False,
+                help="The example defaults are not recommended process values. Confirm only after replacing them with your own validated data."
+            )
 
         st.divider()
         st.markdown("### 4 · Master alloys available")
@@ -274,6 +279,8 @@ with calculator_tab:
         st.divider()
         if st.button("⚙️  CALCULATE CHARGE", type="primary", use_container_width=True):
             try:
+                if calculation_basis == "Actual process-adjusted" and not process_data_confirmed:
+                    raise CalculationError("Confirm that the actual-mode yield and element recoveries are measured and validated before calculating.")
                 if calculation_basis == "Ideal theoretical":
                     result = calculate_blend(
                         batch_kg, controlled_elements, target, base, master_alloys
@@ -357,6 +364,9 @@ with calculator_tab:
 with guide_tab:
     st.markdown("## How to use M-Alloy-CAL")
     st.markdown("""
+### Step 0 — Choose the calculation route
+First choose whether you are targeting the registered grade chemistry range or entering a modified/custom composition. The registered mode constrains grade-element targets to the stored range; the custom mode allows other values but does not certify specification compliance. Then choose **Ideal theoretical** or **Actual process-adjusted**. Ideal mode assumes 100% retention. Actual mode requires measured overall metal yield and an element-specific recovery for every selected element, plus an explicit confirmation that the data are validated.
+
 ### Step 1 — Select the aluminium casting grade
 Choose the alloy designation (for example A356.0). Filter by series if helpful. Check the product route and open the linked ASTM catalogue page. The displayed grade chemistry is a starter reference, not proof of ASTM compliance.
 
@@ -376,6 +386,7 @@ Enter the measured concentration of each selected element in the base metal. Use
 Enter a unique material name or grade for each master alloy. For every selected element, enter its concentration from the supplier's certificate in **wt.%**. Enter zero only if the certificate or reliable analysis supports zero / below-detection content. A multi-element master alloy can be entered with more than one non-zero assay.
 
 ### Step 7 — Calculate and review the charge sheet
+In actual mode, the gross charge mass is larger than the required recovered metal mass when the measured yield is below 100%. The combined effect of oxidation, dross, slag removal/carry-over and transfer losses is represented by the entered overall yield; do not enter those losses again as additional deductions. Element-specific recovery accounts for how much of each selected element remains in the final metal. This mode does not calculate the separate mass or chemistry of each loss stream.
 Press **CALCULATE CHARGE**. Review base-metal mass, each master-alloy addition in **kg**, and the calculated versus target composition. Displayed charge masses are rounded to 0.01 kg; composition values retain more displayed precision for low-level additions.
 
 ### Example — adding strontium
@@ -401,7 +412,7 @@ with warnings_tab:
 - **Compositionally dependent materials:** the selected master alloys may not provide independent composition balances, so the equations cannot be solved.
 
 ### Metallurgical limitations
-- The solver performs an ideal mass balance. It does not model recovery efficiency, oxidation, fading, dross/slag loss, melt loss, evaporation, contamination, or interactions between treatment elements.
+- Ideal mode performs a theoretical mass balance and assumes 100% retention. Actual process-adjusted mode uses operator-supplied measured overall metal yield and selected-element recovery values; it does not independently predict oxidation, fading, dross/slag mass or composition, evaporation, contamination, or treatment interactions.
 - The solver balances only the elements selected by the operator. It does not certify every element in the alloy or check all registered trace-element limits.
 - Strontium, sodium, antimony, phosphorus, boron, titanium, zirconium and rare-earth additions can have process-specific effects. Their appropriate target and addition practice must come from a qualified metallurgist and validated plant procedure. The calculator does not determine treatment effectiveness.
 - Some element combinations can be incompatible or can form unwanted phases. A mathematically feasible charge is not necessarily a metallurgically suitable charge.
