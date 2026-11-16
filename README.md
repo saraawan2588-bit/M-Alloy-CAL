@@ -1,13 +1,15 @@
 # M-Alloy-CAL
 
-A simple browser-based master-alloy and charge calculator built with Python and Streamlit.
+A browser-based master-alloy and charge calculator built with Python and Streamlit.
 
 ## Current prototype
 
-The guided workflow currently includes a starter set of registered aluminium casting alloy records:
+The guided workflow includes a starter set of registered aluminium casting alloy records:
 - 3xx.x: A356.0, 356.0, 319.0
 - 4xx.x: B413.0, 443.0
 - 5xx.x: 535.0
+
+The calculator's **addition-element selector contains all 118 chemical elements**, including modifiers and microalloying elements such as Sr, Na, Sb, P, B, Ti, Zr and rare-earth elements. The operator selects the elements to balance, then enters target concentration, base-metal assay and supplier-certified master-alloy assays. This does not mean every element is suitable for aluminium foundry use or is available as a master alloy.
 
 The alloy series follow the Aluminum Association cast-alloy designation system. This is **not yet a complete catalogue of every registered casting alloy**. In particular, 2xx.x, 7xx.x, 8xx.x, 9xx.x, and additional 1xx.x / 3xx.x / 4xx.x / 5xx.x grades still need to be added and checked.
 
@@ -28,12 +30,20 @@ Run the calculation-engine tests:
 python -m unittest discover -s tests -v
 ```
 
-## Units and displayed precision
+## Units and precision
 
 - Charge masses are displayed in **kg**, rounded to 0.01 kg for readability.
-- Composition values are entered and displayed in **wt.%**.
+- Composition values are entered in **wt.%**.
+- Low-level elements not present in the selected grade's main chemistry table use four decimal places in input fields.
+- 1 wt.% = 10,000 ppm. Convert ppm to wt.% before entry.
 - The calculation engine retains full floating-point precision internally; displayed rounding does not change the calculation.
 - Always use plant-approved weighing increments and validated process recoveries.
+
+## Operator guidance and warnings
+
+The application contains three tabs: Charge calculator, How to use, and Warnings & troubleshooting. The guide explains the operator workflow and includes an Sr example. The warning tab describes input mistakes, solver errors, metallurgical limitations, and the need for production validation.
+
+The current solver requires at least as many master alloys as controlled elements and searches exact square subsets. It may reject a blend if no non-negative, compositionally independent solution is available. A mathematically feasible result is not necessarily a metallurgically suitable treatment.
 
 ## Data sources and standard links
 
@@ -47,7 +57,7 @@ The Pink Sheets are a registration record maintained by The Aluminum Association
 - [ASTM B85/B85M-25 — Aluminum-Alloy Die Castings](https://store.astm.org/b0085_b0085m-25.html)
 - [ASTM B179-26 — Aluminum Alloys in Ingot and Molten Forms](https://store.astm.org/b0179-26.html)
 
-These links open ASTM's official catalogue pages; the full standards may require purchase or authorized access. The current database entries are **not ASTM-verified**. Do not infer that the Pink Sheets chemistry alone establishes conformance to a product specification. Confirm the exact grade, process route, edition, full table, footnotes, trace elements, mechanical properties, sampling, testing, and purchaser/producer requirements against the applicable standard.
+These links open ASTM's official catalogue pages; the full standards may require purchase or authorized access. The current database entries are **not ASTM-verified**. Confirm the exact grade, process route, edition, full table, footnotes, trace elements, mechanical properties, sampling, testing, and purchaser/producer requirements against the applicable standard.
 
 ## Calculation model and limitations
 
@@ -59,14 +69,14 @@ sum_i m_i (a_ij - b_j) = M (t_j - b_j)
 
 Compositions are wt.% and masses are kg. The engine searches exact square subsets of the selected master alloys and accepts a non-negative solution that leaves non-negative base metal. If no exact feasible combination exists, it reports an error.
 
-The current model does not account for element recovery, oxidation, dross/slag losses, melt loss, charge contamination, unentered trace elements, assay uncertainty, or economic optimization. It also solves only the elements selected by the operator. A result is not a complete chemistry compliance certificate or a production instruction.
+The current model does not account for element recovery, oxidation, fading, dross/slag losses, melt loss, evaporation, charge contamination, unentered trace elements, assay uncertainty, or economic optimization. It balances only the elements selected by the operator. It does not certify full alloy chemistry compliance or determine whether a modifier treatment is effective or compatible with the process.
+
+**Do not use the tool as a production charge instruction until the data, calculation model, recoveries, process controls and results have been reviewed and validated by qualified metallurgical personnel.**
 
 ## Planned next steps
 
 1. Complete the cast-alloy family catalogue across 1xx, 2xx, 3xx, 4xx, 5xx, 7xx, 8xx, and 9xx groups.
 2. Verify each grade against the applicable licensed current ASTM specification and record exact edition/year, table, footnotes, and product route.
-3. Add master-alloy catalogue records with supplier assay and lot traceability.
+3. Add a master-alloy catalogue with supplier assay and lot traceability.
 4. Add element recovery factors, melt-loss/yield corrections, and process-specific controls.
 5. Add charge-sheet export, operator language support, and plant validation.
-
-The project is a prototype for education and workflow development. It must undergo metallurgical review and plant validation before production use.
