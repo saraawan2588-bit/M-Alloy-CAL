@@ -3,7 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from calculator import calculate_blend, CalculationError
+from calculator import calculate_blend, calculate_blend_actual, CalculationError
 
 st.set_page_config(
     page_title="M-Alloy-CAL | Foundry Charge Calculator",
@@ -51,7 +51,7 @@ st.markdown(
     '<p>Master-alloy and charge calculator · Aluminium foundry edition</p></div>',
     unsafe_allow_html=True,
 )
-st.write("Calculate an ideal charge using your target chemistry, base-metal assay, and available master alloys.")
+st.write("Choose your composition route and calculation basis, then build and verify an aluminium foundry charge.")
 
 st.warning(
     "Prototype / educational use only. The alloy-grade chemistry records are transcribed from "
@@ -64,6 +64,28 @@ calculator_tab, guide_tab, warnings_tab, audit_tab = st.tabs(
 )
 
 with calculator_tab:
+    st.markdown("## 1 · Choose your production calculation")
+    mode_cols = st.columns(2)
+    with mode_cols[0]:
+        composition_route = st.radio(
+            "Composition route",
+            ["Registered grade target", "Modified / custom composition"],
+            help="Registered grade mode starts from the recorded alloy chemistry range. Custom mode allows you to enter an approved target that may differ from that range."
+        )
+    with mode_cols[1]:
+        calculation_basis = st.radio(
+            "Calculation basis",
+            ["Ideal theoretical", "Actual process-adjusted"],
+            help="Ideal assumes 100% retention. Actual process-adjusted requires measured overall metal yield and element-specific recovery data."
+        )
+    if composition_route == "Registered grade target":
+        st.info("Registered-grade route: choose a casting alloy and set targets within the recorded chemistry limits. This prototype's starter limits are transcribed from the Aluminum Association Pink Sheets, not independently ASTM-certified.")
+    else:
+        st.warning("Custom route: you may enter modified chemistry targets. The app will not certify that the modified composition complies with the selected alloy standard. Obtain metallurgical and customer approval.")
+    if calculation_basis == "Ideal theoretical":
+        st.info("Ideal basis: charge mass equals the requested final batch mass. No oxidation, dross, slag, fading, transfer loss or element recovery is applied.")
+    else:
+        st.warning("Actual process-adjusted basis: enter measured metal yield and recovery for every controlled element. The software uses these measured factors; it does not predict oxidation, dross or slag formation. Do not invent generic loss percentages.")
     alloys = database["alloys"]
     series_labels = sorted({a.get("series", "Other") for a in alloys})
     series_filter = st.selectbox("Filter by cast-alloy series", ["All series"] + series_labels)
@@ -131,12 +153,21 @@ with calculator_tab:
         for idx, (element, limits) in enumerate(selected["elements"].items()):
             midpoint = (limits["min"] + limits["max"]) / 2
             with target_cols[idx % 3]:
-                grade_target[element] = st.number_input(
-                    f"{element} target (wt.%)",
-                    min_value=float(limits["min"]), max_value=float(limits["max"]),
-                    value=float(midpoint), step=0.01, format="%.2f",
-                    key=f'grade_target_{selected["designation"]}_{element}',
-                )
+                if composition_route == "Registered grade target":
+                    grade_target[element] = st.number_input(
+                        f"{element} target (wt.%)",
+                        min_value=float(limits["min"]), max_value=float(limits["max"]),
+                        value=float(midpoint), step=0.01, format="%.2f",
+                        key=f'grade_target_{selected["designation"]}_{element}',
+                    )
+                else:
+                    grade_target[element] = st.number_input(
+                        f"{element} custom target (wt.%)",
+                        min_value=0.0, max_value=100.0,
+                        value=float(midpoint), step=0.01, format="%.4f",
+                        key=f'custom_grade_target_{selected["designation"]}_{element}',
+                        help=f"Recorded reference range: {limits['min']}–{limits['max']} wt.%. Custom values outside this range are not standard-compliant by this record."
+                    )
 
     st.divider()
     st.markdown("### 3 · Select every element you want to adjust")
@@ -165,6 +196,7 @@ with calculator_tab:
         )
         target = {}
         base = {}
+        element_recovery = {}
         input_cols = st.columns(2)
         for idx, element in enumerate(controlled_elements):
             grade_limits = selected["elements"].get(element)
@@ -184,6 +216,25 @@ with calculator_tab:
                     format="%.2f" if grade_limits else "%.4f",
                     key=f'controlled_base_{selected["designation"]}_{element}',
                 )
+                if calculation_basis == "Actual process-adjusted":
+                    element_recovery[element] = st.number_input(
+                        f"{element} recovery (%)",
+                        min_value=0.01, max_value=100.0, value=100.0,
+                        step=0.1, format="%.2f",
+                        key=f'element_recovery_{selected["designation"]}_{element}',
+                        help="Use a validated process-specific recovery value for this element, not a guessed value."
+                    )
+
+        metal_yield_pct = 100.0
+        if calculation_basis == "Actual process-adjusted":
+            st.markdown("### Measured process yield")
+            metal_yield_pct = st.number_input(
+                "Overall metal yield (%)",
+                min_value=0.01, max_value=100.0, value=95.0,
+                step=0.1, format="%.2f",
+                help="Recovered metal mass divided by total charged mass. Use historical or measured data for the same furnace, alloy family, treatment and operating practice."
+            )
+            st.caption("This single measured yield represents the combined net effect of metal losses such as oxidation, dross, slag carry-over/removal and transfer losses. Do not add separate loss percentages again if they are already included in the measured yield.")
 
         st.divider()
         st.markdown("### 4 · Master alloys available")
@@ -223,9 +274,15 @@ with calculator_tab:
         st.divider()
         if st.button("⚙️  CALCULATE CHARGE", type="primary", use_container_width=True):
             try:
-                result = calculate_blend(
-                    batch_kg, controlled_elements, target, base, master_alloys
-                )
+                if calculation_basis == "Ideal theoretical":
+                    result = calculate_blend(
+                        batch_kg, controlled_elements, target, base, master_alloys
+                    )
+                else:
+                    result = calculate_blend_actual(
+                        batch_kg, controlled_elements, target, base, master_alloys,
+                        metal_yield_pct, element_recovery
+                    )
                 st.session_state["last_calculation_audit"] = {
                     "batch_kg": float(batch_kg),
                     "elements": list(controlled_elements),
@@ -236,8 +293,10 @@ with calculator_tab:
                         for item in master_alloys
                     ],
                     "result": result,
+                    "calculation_basis": calculation_basis,
+                    "composition_route": composition_route,
                 }
-                st.success("Ideal material-balance calculation completed.")
+                st.success(f"{calculation_basis} calculation completed.")
                 st.markdown("## Charge sheet")
                 charge_rows = [
                     {"Material": "Base metal / returns", "Charge (kg)": round(result["base_metal_kg"], 2)}
@@ -253,7 +312,14 @@ with calculator_tab:
                 for idx, item in enumerate(result["master_alloys"], start=1):
                     with result_cols[idx % len(result_cols)]:
                         st.metric(item["name"], f'{item["kg"]:,.2f} kg')
-                st.metric("Final batch mass", f'{result["batch_kg"]:,.2f} kg')
+                if calculation_basis == "Ideal theoretical":
+                    st.metric("Final batch mass", f'{result["batch_kg"]:,.2f} kg')
+                else:
+                    actual_cols = st.columns(3)
+                    actual_cols[0].metric("Required recovered metal", f'{result["final_metal_kg"]:,.2f} kg')
+                    actual_cols[1].metric("Total gross charge", f'{result["total_charge_kg"]:,.2f} kg')
+                    actual_cols[2].metric("Measured metal yield", f'{result["metal_yield_pct"]:.2f} %')
+                    st.caption("The base metal and master-alloy charge masses above sum to gross charge mass. The requested final batch is the recovered metal mass after the measured overall yield is applied.")
 
                 st.markdown("### Final composition check")
                 check_rows = [
@@ -268,11 +334,18 @@ with calculator_tab:
                 st.dataframe(check_rows, use_container_width=True, hide_index=True)
                 if result["unused_master_alloys"]:
                     st.info("No addition required from: " + ", ".join(result["unused_master_alloys"]))
-                st.warning(
-                    "This is an ideal mass balance only. It does not include recovery, fading, oxidation, "
-                    "dross/slag losses, melt loss, contamination, treatment interactions, or unentered trace "
-                    "elements. Do not use as a production charge instruction without plant validation."
-                )
+                if calculation_basis == "Ideal theoretical":
+                    st.warning(
+                        "This is an ideal mass balance only. It does not include recovery, fading, oxidation, "
+                        "dross/slag losses, melt loss, contamination, treatment interactions, or unentered trace "
+                        "elements. Do not use as a production charge instruction without plant validation."
+                    )
+                else:
+                    st.warning(
+                        "This is a process-adjusted estimate using user-supplied overall metal yield and "
+                        "element-specific recoveries. It does not independently calculate oxide, dross or slag "
+                        "mass/composition, and it is only as reliable as the measured process data entered."
+                    )
             except CalculationError as exc:
                 st.error(f"Calculation could not be completed: {exc}")
                 st.info(
