@@ -103,9 +103,10 @@ def build_pdf_report(saved):
         ])
     story.append(_report_table(chemistry, [30*mm, 48*mm, 48*mm, 44*mm]))
     story += [Spacer(1, 3*mm), Paragraph("3. Master-alloy assays entered (wt.%)", styles["Heading2"])]
-    assay = [["Material"] + elements]
+    assay = [["Material", "Element", "Assay (wt.%)"]]
     for material in saved["master_alloys"]:
-        assay.append([material["name"]] + [f'{material["composition"].get(e, 0):.6f}' for e in elements])
+        for element in elements:
+            assay.append([material["name"], element, f'{material["composition"].get(element, 0):.6f}'])
     story.append(_report_table(assay))
     story += [Spacer(1, 3*mm), Paragraph("4. Calculated charge sheet", styles["Heading2"])]
     charges = [["Material", "Charge (kg)"], ["Base metal / returns", f'{result["base_metal_kg"]:.6f}']]
@@ -154,6 +155,8 @@ div[data-testid="stMetric"] {background:var(--secondary-background-color);color:
 div.stButton > button[kind="primary"] {min-height:3.15rem;font-size:1rem;font-weight:700;border-radius:10px;}
 div[data-testid="stExpander"] {border-radius:10px;}
 div[data-testid="stNumberInput"] label,div[data-testid="stTextInput"] label {color:var(--text-color)!important;}
+div[data-testid="stNumberInput"] input,div[data-testid="stTextInput"] input {background:var(--secondary-background-color)!important;color:var(--text-color)!important;border-color:var(--border-color,#8885)!important;}
+div[data-testid="stNumberInput"] button {color:var(--text-color)!important;border-color:var(--border-color,#8885)!important;}
 div[data-testid="stVerticalBlockBorderWrapper"] {border-color:var(--border-color,#8885)!important;}
 </style>
 """, unsafe_allow_html=True)
