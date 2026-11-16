@@ -151,7 +151,8 @@ with calculator_tab:
         "Elements to calculate from master-alloy additions",
         options=ELEMENT_LABELS,
         default=[f"{s} — {ELEMENT_NAME[s]}" for s in default_symbols],
-        help="Choose all elements whose final concentrations you want the mass balance to meet.",
+        max_selections=20,
+        help="Choose up to 20 elements whose final concentrations you want the mass balance to meet.",
     )
     controlled_elements = [label.split(" — ")[0] for label in selected_labels]
 
