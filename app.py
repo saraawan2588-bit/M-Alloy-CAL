@@ -490,11 +490,13 @@ with audit_tab:
         audit_base_mass = audit_result["base_metal_kg"]
         audit_additions = [item["kg"] for item in audit_result["master_alloys"]]
         audit_total = audit_base_mass + sum(audit_additions)
-        mass_error = audit_total - audit_batch
-        metrics = st.columns(3)
-        metrics[0].metric("Required batch", f"{audit_batch:,.6f} kg")
-        metrics[1].metric("Reconstructed charge", f"{audit_total:,.6f} kg")
-        metrics[2].metric("Mass difference", f"{mass_error:+.8f} kg")
+        expected_charge = audit_result.get("total_charge_kg", audit_batch)
+        mass_error = audit_total - expected_charge
+        metrics = st.columns(4)
+        metrics[0].metric("Required final metal", f"{audit_batch:,.6f} kg")
+        metrics[1].metric("Expected gross charge", f"{expected_charge:,.6f} kg")
+        metrics[2].metric("Reconstructed charge", f"{audit_total:,.6f} kg")
+        metrics[3].metric("Mass difference", f"{mass_error:+.8f} kg")
 
         audit_rows = []
         for element in saved["elements"]:
@@ -504,7 +506,9 @@ with audit_tab:
                 for master, addition in zip(saved["master_alloys"], audit_additions)
             )
             total_element = base_element + master_element
-            recalculated = 100.0 * total_element / audit_batch
+            recovery_fraction = audit_result.get("element_recovery_pct", {}).get(element, 100.0) / 100.0
+            retained_element = total_element * recovery_fraction
+            recalculated = 100.0 * retained_element / audit_batch
             audit_rows.append({
                 "Element": element,
                 "Base contribution (kg)": base_element,
@@ -526,7 +530,17 @@ with audit_tab:
             st.error("The result does not pass the audit tolerance. Do not rely on this charge sheet; report it for code review.")
         st.caption("This reconstructs total mass and selected-element masses from the returned charge quantities. It is a consistency check, not an independent laboratory assay or plant trial.")
 
-    st.markdown("### 6 · Weight loss, metal yield and element recovery")
+    st.markdown("### 6 · Process-adjusted calculation equations")
+    st.write("When Actual process-adjusted is selected, the requested batch mass is the required recovered final metal mass, not the gross furnace charge.")
+    st.latex(r"Y=\frac{M_{final\ metal}}{M_{gross\ charge}}")
+    st.latex(r"M_{gross\ charge}=\frac{M_{final\ metal}}{Y}")
+    st.latex(r"m_{base,charge}=M_{gross\ charge}-\sum_i m_i")
+    st.latex(r"R_E=\frac{m_{E,retained}}{m_{E,charged}}")
+    st.latex(r"C_E=100\frac{R_E\left(m_{base,charge}b_E/100+\sum_i m_i a_{i,E}/100\right)}{M_{final\ metal}}")
+    st.latex(r"\sum_i m_i(a_{i,E}-b_E)=\frac{M_{final\ metal}t_E}{R_E}-M_{gross\ charge}b_E")
+    st.caption("For this equation, concentrations are numerical wt.% values and recovery fractions are decimals (e.g. 95% = 0.95). Overall yield is the measured combined metal yield. Element recovery is a separate measured fraction. The model does not independently predict the individual masses or chemistry of oxide, dross or slag streams.")
+
+    st.markdown("### 7 · Weight loss and recovery definitions")
     st.warning("The current version assumes ideal 100% retention for its theoretical mass balance. It does not calculate furnace losses or element recovery. Metal yield and individual-element recovery are different quantities.")
     st.markdown("**Overall metal yield and weight loss**")
     st.latex(r"Y=\frac{M_{metal\ recovered}}{M_{charge}}")
@@ -535,9 +549,9 @@ with audit_tab:
     st.markdown("**Element-specific recovery**")
     st.latex(r"R_E=\frac{m_{E,\ retained\ in\ metal}}{m_{E,\ charged}}")
     st.latex(r"m_{E,\ retained}=R_E\,m_{E,\ charged}")
-    st.write("A future recovery-aware model must use validated, process-specific yield and element-recovery data. It must account for retained element mass and actual final metal mass. Oxidation, dross, fading, evaporation, transfer losses and treatment practice can affect elements differently; do not apply one generic loss factor to every element.")
+    st.write("The actual mode uses the entered overall metal yield to scale gross charge and the entered element recovery to calculate retained selected-element mass. The yield must already represent the combined net effect of process metal losses; do not subtract oxidation/dross/slag losses again. This mode does not calculate the separate mass or composition of each loss stream. Use measured data from comparable operating conditions.")
 
-    st.markdown("### 7 · Unit conversions and practical checks")
+    st.markdown("### 8 · Unit conversions and practical checks")
     st.latex(r"1\;wt.\%=10{,}000\;ppm")
     st.latex(r"wt.\%=\frac{ppm}{10{,}000}")
     st.latex(r"ppm=wt.\%\times10{,}000")
@@ -549,7 +563,7 @@ with audit_tab:
 - Check the complete alloy specification, including unselected elements, trace limits and footnotes.
 """)
 
-    st.markdown("### 8 · Technical and standards references")
+    st.markdown("### 9 · Technical and standards references")
     st.markdown("""
 - [The Aluminum Association — Pink Sheets](https://www.aluminum.org/pink-sheets)
 - [Pink Sheets, August 2025 — PDF](https://www.aluminum.org/sites/default/files/2025-10/Pink%20Sheets%202025.pdf)
