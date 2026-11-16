@@ -41,7 +41,7 @@ python -m unittest discover -s tests -v
 
 ## Operator guidance and warnings
 
-The application contains four tabs: Charge calculator, How to use, Warnings & troubleshooting, and Calculation audit. The audit tab documents the mass-balance equations, defines symbols and units, gives a worked Al–50Si example, independently reconstructs the latest result from its charge masses, and provides links to standards and technical references.
+The application contains four tabs: Charge calculator, Frequently asked questions, Warnings, and Calculation audit. The interface uses a right-aligned text navigation bar, a foundry-themed photographic header, and a theme-aware layout. The latest calculation can be exported as a PDF report containing the selected alloy and process route, calculation mode, batch size, controlled elements, target and base assays, master-alloy assays, process yield/recoveries where applicable, charge quantities, and calculated chemistry. Bug reports can be sent to temporarymail09871234@gmail.com. The audit tab documents the mass-balance equations, defines symbols and units, gives a worked Al–50Si example, independently reconstructs the latest result from its charge masses, and provides links to standards and technical references.
 
 The current solver requires at least as many master alloys as controlled elements and searches exact square subsets. It may reject a blend if no non-negative, compositionally independent solution is available. A mathematically feasible result is not necessarily a metallurgically suitable treatment.
 
@@ -79,7 +79,7 @@ The current model does not account for element recovery, oxidation, fading, dros
 2. Verify each grade against the applicable licensed current ASTM specification and record exact edition/year, table, footnotes, and product route.
 3. Add a master-alloy catalogue with supplier assay and lot traceability.
 4. Add element recovery factors, melt-loss/yield corrections, and process-specific controls.
-5. Add charge-sheet export, operator language support, and plant validation.
+5. Expand PDF reporting and audit metadata, operator language support, and plant validation.
 
 
 ## Calculation audit and weight-loss equations
