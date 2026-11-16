@@ -41,7 +41,7 @@ python -m unittest discover -s tests -v
 
 ## Operator guidance and warnings
 
-The application contains three tabs: Charge calculator, How to use, and Warnings & troubleshooting. The guide explains the operator workflow and includes an Sr example. The warning tab describes input mistakes, solver errors, metallurgical limitations, and the need for production validation.
+The application contains four tabs: Charge calculator, How to use, Warnings & troubleshooting, and Calculation audit. The audit tab documents the mass-balance equations, defines symbols and units, gives a worked Al–50Si example, independently reconstructs the latest result from its charge masses, and provides links to standards and technical references.
 
 The current solver requires at least as many master alloys as controlled elements and searches exact square subsets. It may reject a blend if no non-negative, compositionally independent solution is available. A mathematically feasible result is not necessarily a metallurgically suitable treatment.
 
@@ -80,3 +80,32 @@ The current model does not account for element recovery, oxidation, fading, dros
 3. Add a master-alloy catalogue with supplier assay and lot traceability.
 4. Add element recovery factors, melt-loss/yield corrections, and process-specific controls.
 5. Add charge-sheet export, operator language support, and plant validation.
+
+
+## Calculation audit and weight-loss equations
+
+The **Calculation audit** tab provides the equations needed to check the software's ideal charge calculation by hand:
+
+- Total mass: `M = m0 + sum(mi)`
+- Base-metal mass: `m0 = M - sum(mi)`
+- Element mass from the base: `mE,base = m0 × bE / 100`
+- Element mass from additions: `mE,additions = sum[mi × ai,E / 100]`
+- Final element concentration: `CE = 100 × mE,total / M`
+- Solver balance: `sum[mi × (ai,E - bE)] = M × (tE - bE)`
+
+Here, M and mi are in kg; bE, ai,E, and tE are numerical wt.% values. The audit tab also stores the most recent calculation in the Streamlit session and independently reconstructs total charge mass and the mass/concentration of each selected element from the returned charge quantities.
+
+### Weight loss and recovery are not included in the present solver
+
+For a separately measured overall metal yield:
+
+- `Y = recovered metal mass / charged mass`
+- `metal loss (%) = 100 × (1 - Y)`
+- `required charge mass = required recovered metal mass / Y`
+
+For element-specific recovery:
+
+- `RE = retained element mass in metal / charged element mass`
+- `retained element mass = RE × charged element mass`
+
+These equations are explanatory only. The current solver assumes ideal 100% retention and does **not** apply Y or RE. Metal yield and element-specific recovery are not interchangeable; use plant-validated data and a separately validated recovery-aware model before including them in production charge calculations.
