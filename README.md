@@ -109,3 +109,28 @@ For element-specific recovery:
 - `retained element mass = RE × charged element mass`
 
 These equations are explanatory only. The current solver assumes ideal 100% retention and does **not** apply Y or RE. Metal yield and element-specific recovery are not interchangeable; use plant-validated data and a separately validated recovery-aware model before including them in production charge calculations.
+
+
+## Production route and calculation basis
+
+At the top of the calculator, the operator chooses two independent settings:
+
+1. **Composition route**
+   - **Registered grade target:** targets for listed grade elements are constrained to the chemistry ranges in the starter database. These records are sourced from The Aluminum Association Pink Sheets (August 2025); they are not independently certified as ASTM-compliant.
+   - **Modified / custom composition:** permits user-entered targets outside the recorded ranges. This does not mean the modified chemistry complies with the alloy standard, customer specification or casting process requirements.
+
+2. **Calculation basis**
+   - **Ideal theoretical:** assumes 100% retention. The sum of base metal and master-alloy additions equals the required final batch mass.
+   - **Actual process-adjusted:** treats the requested batch as recovered final metal. It calculates gross charge using a user-entered measured overall metal yield and uses a measured recovery percentage for each selected element. The operator must confirm that these values come from validated, comparable process data.
+
+### Actual-mode equations and limitations
+
+- Overall metal yield: `Y = final recovered metal mass / gross charged mass`
+- Gross charge: `Mcharge = Mfinal / Y`
+- Base-metal charge: `m0 = Mcharge - sum(master-alloy additions)`
+- Element recovery: `RE = retained mass of element E / charged mass of element E`
+- Final element concentration: `CE = 100 × RE × charged mass of E / Mfinal`
+
+The measured overall yield is intended to include the combined net effect of metal losses such as oxidation, dross, slag removal/carry-over and transfer losses. Do **not** subtract those losses a second time if they are already included in the yield. Element-specific recovery is separate from overall metal yield.
+
+This mode does not independently calculate the mass or chemistry of oxide, dross, slag or other individual loss streams, nor does it predict yield or recovery. It is a process-adjusted calculation based on user-provided measured factors. If suitable data are unavailable, use ideal mode for theoretical study only; do not guess actual-mode inputs.
