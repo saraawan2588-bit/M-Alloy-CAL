@@ -59,8 +59,8 @@ st.warning(
     "This calculator does not replace melt-treatment procedures or metallurgical approval."
 )
 
-calculator_tab, guide_tab, warnings_tab = st.tabs(
-    ["⚙️  Charge calculator", "📘  How to use", "⚠️  Warnings & troubleshooting"]
+calculator_tab, guide_tab, warnings_tab, audit_tab = st.tabs(
+    ["⚙️  Charge calculator", "📘  How to use", "⚠️  Warnings & troubleshooting", "🧮  Calculation audit"]
 )
 
 with calculator_tab:
@@ -226,6 +226,17 @@ with calculator_tab:
                 result = calculate_blend(
                     batch_kg, controlled_elements, target, base, master_alloys
                 )
+                st.session_state["last_calculation_audit"] = {
+                    "batch_kg": float(batch_kg),
+                    "elements": list(controlled_elements),
+                    "target": dict(target),
+                    "base": dict(base),
+                    "master_alloys": [
+                        {"name": item["name"], "composition": dict(item["composition"])}
+                        for item in master_alloys
+                    ],
+                    "result": result,
+                }
                 st.success("Ideal material-balance calculation completed.")
                 st.markdown("## Charge sheet")
                 charge_rows = [
@@ -343,6 +354,139 @@ The starter alloy chemistry records come from The Aluminum Association Pink Shee
         "- [ASTM B85/B85M — Die castings](https://store.astm.org/b0085_b0085m-25.html)\n"
         "- [ASTM B179 — Foundry ingot / molten alloy](https://store.astm.org/b0179-26.html)"
     )
+
+
+with audit_tab:
+    st.markdown("## Independent calculation audit")
+    st.write("This tab explains how to reproduce the mass balance manually and automatically checks the most recent result. The audit uses full-precision internal masses, not rounded charge-sheet display values.")
+
+    st.markdown("### 1 · Symbols and units")
+    st.markdown("""
+| Symbol | Meaning | Unit |
+|---|---|---|
+| \(M\) | Required final batch mass | kg |
+| \(m_0\) | Base-metal / returns mass | kg |
+| \(m_i\) | Mass of master alloy \(i\) | kg |
+| \(b_E\) | Element \(E\) in base metal | wt.% |
+| \(a_{i,E}\) | Element \(E\) in master alloy \(i\) | wt.% |
+| \(t_E\) | Target concentration of element \(E\) | wt.% |
+| \(C_E\) | Calculated final concentration of element \(E\) | wt.% |
+""")
+
+    st.markdown("### 2 · Equations used by the current solver")
+    st.markdown("**A. Total charge-mass balance**")
+    st.latex(r"M = m_0 + \sum_i m_i")
+    st.latex(r"m_0 = M - \sum_i m_i")
+    st.markdown("**B. Element mass contributed by each material**")
+    st.latex(r"m_{E,base}=m_0\frac{b_E}{100}")
+    st.latex(r"m_{E,additions}=\sum_i m_i\frac{a_{i,E}}{100}")
+    st.latex(r"m_{E,total}=m_0\frac{b_E}{100}+\sum_i m_i\frac{a_{i,E}}{100}")
+    st.markdown("**C. Final concentration**")
+    st.latex(r"C_E=100\frac{m_{E,total}}{M}")
+    st.markdown("**D. Rearranged simultaneous equation solved by the software**")
+    st.latex(r"\sum_i m_i(a_{i,E}-b_E)=M(t_E-b_E)")
+    st.caption("Concentrations in the solver equation are numerical wt.% values (e.g. 7.0 means 7.0 wt.%), not fractions. Masses are kg. The solver searches square subsets of master alloys and accepts a non-negative solution that leaves non-negative base metal.")
+
+    st.markdown("### 3 · Manual verification procedure")
+    st.markdown("""
+1. Record the required final batch mass \(M\).
+2. For every controlled element, record its base assay \(b_E\) and target \(t_E\).
+3. Record every master-alloy assay \(a_{i,E}\) from its certificate and its calculated addition \(m_i\).
+4. Add all material masses: base metal plus all master alloys. This must equal \(M\).
+5. For each element, calculate the kg contributed by the base metal and by each master alloy.
+6. Add the element contributions, divide by \(M\), and multiply by 100 to obtain final wt.%.
+7. Compare this result with the target and the software's reported achieved composition.
+8. Use unrounded masses for the audit. Rounding each charge to 0.01 kg before checking can create a small apparent error.
+""")
+
+    st.markdown("### 4 · Worked example: one master alloy")
+    st.write("Assume a 100.00 kg final batch, base-metal Si = 0.50 wt.%, target Si = 7.00 wt.%, and an Al–50Si master alloy containing 50.00 wt.% Si. This is a mathematical example only.")
+    st.latex(r"m_{Al-50Si}=\frac{100(7.00-0.50)}{50.00-0.50}=13.1313\;kg")
+    st.latex(r"m_0=100-13.1313=86.8687\;kg")
+    st.latex(r"m_{Si}=86.8687(0.005)+13.1313(0.50)=7.0000\;kg")
+    st.latex(r"C_{Si}=100\frac{7.0000}{100}=7.0000\;wt.\%")
+    st.success("Check: 86.8687 kg + 13.1313 kg = 100.0000 kg, and the calculated Si is 7.0000 wt.%.")
+
+    st.markdown("### 5 · Automatic audit of the latest calculation")
+    saved = st.session_state.get("last_calculation_audit")
+    if not saved:
+        st.info("No result is stored in this session yet. Run a calculation in the Charge calculator tab, then return here.")
+    else:
+        audit_result = saved["result"]
+        audit_batch = saved["batch_kg"]
+        audit_base_mass = audit_result["base_metal_kg"]
+        audit_additions = [item["kg"] for item in audit_result["master_alloys"]]
+        audit_total = audit_base_mass + sum(audit_additions)
+        mass_error = audit_total - audit_batch
+        metrics = st.columns(3)
+        metrics[0].metric("Required batch", f"{audit_batch:,.6f} kg")
+        metrics[1].metric("Reconstructed charge", f"{audit_total:,.6f} kg")
+        metrics[2].metric("Mass difference", f"{mass_error:+.8f} kg")
+
+        audit_rows = []
+        for element in saved["elements"]:
+            base_element = audit_base_mass * saved["base"].get(element, 0.0) / 100.0
+            master_element = sum(
+                addition * master["composition"].get(element, 0.0) / 100.0
+                for master, addition in zip(saved["master_alloys"], audit_additions)
+            )
+            total_element = base_element + master_element
+            recalculated = 100.0 * total_element / audit_batch
+            audit_rows.append({
+                "Element": element,
+                "Base contribution (kg)": base_element,
+                "Master-alloy contribution (kg)": master_element,
+                "Total element (kg)": total_element,
+                "Target (wt.%)": saved["target"][element],
+                "Independent recalculation (wt.%)": recalculated,
+                "Software result (wt.%)": audit_result["achieved_wt_pct"][element],
+                "Difference vs target (wt.%)": recalculated - saved["target"][element],
+            })
+        st.dataframe(audit_rows, use_container_width=True, hide_index=True)
+        max_error = max(abs(row["Difference vs target (wt.%)"]) for row in audit_rows)
+        st.write(f"Maximum absolute element-target deviation: **{max_error:.10f} wt.%**")
+        if abs(mass_error) <= 1e-7 and max_error <= 1e-7:
+            st.success("The result passes the internal ideal mass-closure and selected-element balance checks.")
+        else:
+            st.error("The result does not pass the audit tolerance. Do not rely on this charge sheet; report it for code review.")
+        st.caption("This reconstructs total mass and selected-element masses from the returned charge quantities. It is a consistency check, not an independent laboratory assay or plant trial.")
+
+    st.markdown("### 6 · Weight loss, metal yield and element recovery")
+    st.warning("The current version assumes ideal 100% retention for its theoretical mass balance. It does not calculate furnace losses or element recovery. Metal yield and individual-element recovery are different quantities.")
+    st.markdown("**Overall metal yield and weight loss**")
+    st.latex(r"Y=\frac{M_{metal\ recovered}}{M_{charge}}")
+    st.latex(r"\%\,metal\,loss=100(1-Y)")
+    st.latex(r"M_{charge}=\frac{M_{metal\ required}}{Y}")
+    st.markdown("**Element-specific recovery**")
+    st.latex(r"R_E=\frac{m_{E,\ retained\ in\ metal}}{m_{E,\ charged}}")
+    st.latex(r"m_{E,\ retained}=R_E\,m_{E,\ charged}")
+    st.write("A future recovery-aware model must use validated, process-specific yield and element-recovery data. It must account for retained element mass and actual final metal mass. Oxidation, dross, fading, evaporation, transfer losses and treatment practice can affect elements differently; do not apply one generic loss factor to every element.")
+
+    st.markdown("### 7 · Unit conversions and practical checks")
+    st.latex(r"1\;wt.\%=10{,}000\;ppm")
+    st.latex(r"wt.\%=\frac{ppm}{10{,}000}")
+    st.latex(r"ppm=wt.\%\times10{,}000")
+    st.markdown("""
+- 250 ppm = 0.0250 wt.%.
+- 0.12 wt.% = 1,200 ppm.
+- Do not round intermediate values; round only the final weighing instruction to the plant's approved scale increment.
+- Check base-metal and master-alloy assays against the correct heat/lot certificates.
+- Check the complete alloy specification, including unselected elements, trace limits and footnotes.
+""")
+
+    st.markdown("### 8 · Technical and standards references")
+    st.markdown("""
+- [The Aluminum Association — Pink Sheets](https://www.aluminum.org/pink-sheets)
+- [Pink Sheets, August 2025 — PDF](https://www.aluminum.org/sites/default/files/2025-10/Pink%20Sheets%202025.pdf)
+- [The Aluminum Association — Standards and alloy registration](https://www.aluminum.org/standards)
+- [ASTM B26/B26M-25 — Sand castings](https://store.astm.org/b0026_b0026m-25.html)
+- [ASTM B108/B108M-25 — Permanent-mold castings](https://store.astm.org/b0108_b0108m-25.html)
+- [ASTM B85/B85M-25 — Die castings](https://store.astm.org/b0085_b0085m-25.html)
+- [ASTM B179-26 — Foundry ingot and molten alloys](https://store.astm.org/b0179-26.html)
+- [Academic mass-balance example for foundry charge calculations — Michigan Technological University thesis](https://core.ac.uk/download/pdf/151507827.pdf)
+""")
+    st.caption("These references support alloy designation/specification lookup and general mass-balance study. They do not certify this prototype's code, input assays, recovery factors or production suitability.")
+
 
 st.divider()
 st.caption("M-Alloy-CAL · Aluminium casting prototype · Complete chemistry and plant process validation are required before production use.")
