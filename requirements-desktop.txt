@@ -1,0 +1,4 @@
+# Desktop-only dependencies. The existing web requirements remain in requirements.txt.
+PySide6>=6.7,<7.0
+PyInstaller>=6.8,<7.0
+reportlab>=4.0,<5.0
