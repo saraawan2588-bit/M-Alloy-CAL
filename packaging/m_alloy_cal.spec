@@ -5,8 +5,12 @@ from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
 
-# SPECPATH is the directory containing this spec file (the packaging folder).
-ROOT = Path(SPECPATH).resolve().parent
+# Resolve safely whether SPECPATH is provided as the spec directory or file path.
+_spec_location = Path(SPECPATH).resolve()
+_candidates = [_spec_location, _spec_location.parent, _spec_location.parent.parent]
+ROOT = next((path for path in _candidates if (path / "desktop" / "main.py").is_file()), None)
+if ROOT is None:
+    raise RuntimeError("Could not locate the M-Alloy-CAL repository root from the spec file.")
 hiddenimports = collect_submodules("PySide6")
 
 a = Analysis(
